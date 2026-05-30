@@ -383,8 +383,14 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
         return -1;
     }
 
-    /* Add a file descriptor to the set */
+    /* Add a file descriptor to the set.
+     * On Windows RTU, serial I/O is handled by the backend's HANDLE instead
+     * of ctx->s, so ctx->s stays at its common initial value (-1).
+     */
     FD_ZERO(&rset);
+#if defined(_WIN32)
+    if (ctx->backend->backend_type != _MODBUS_BACKEND_TYPE_RTU) {
+#endif
     if (ctx->s < 0 || ctx->s >= FD_SETSIZE) {
         if (ctx->debug) {
             fprintf(stderr, "ERROR Invalid socket descriptor %d\n", ctx->s);
@@ -393,6 +399,9 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
         return -1;
     }
     FD_SET(ctx->s, &rset);
+#if defined(_WIN32)
+    }
+#endif
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
